@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MELI Dashboard - Mercado Libre Management
 
-## Getting Started
+Un dashboard moderno y eficiente para la gestión de Mercado Libre, integrado directamente con Google Sheets.
 
-First, run the development server:
+## Características
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- 📊 **Dashboard General**: Resumen de métricas clave de todas las secciones.
+- 📦 **Gestión de Productos**: Tabla avanzada con filtros por estado, categoría y búsqueda. Sincronización de stock en tiempo real.
+- 💰 **Ventas y Órdenes**: Seguimiento de ventas con gráficos dinámicos (Recharts), paginación y filtros de fecha.
+- 💬 **Centro de Mensajes**: Gestión de preguntas y mensajes con indicadores de urgencia (>24h).
+- 📜 **Logs de Sistema**: Monitoreo de automatizaciones n8n con resaltado de errores y copia de detalles.
+- 🌓 **Modo Oscuro**: Soporte nativo para temas claro y oscuro.
+- 📱 **Responsive**: Diseño optimizado para desktop y mobile (bottom navigation).
+- 🔄 **Auto-refresh**: Actualización automática de datos cada 5 minutos.
+
+## Requisitos Previos
+
+Necesitas un Google Sheet con 4 hojas publicadas como CSV. La URL debe seguir este patrón:
+`https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID}`
+
+## Configuración de Variables de Entorno
+
+Crea un archivo `.env.local` en la raíz del proyecto con el siguiente contenido:
+
+```env
+NEXT_PUBLIC_SHEET_ID=tu_sheet_id_aqui
+NEXT_PUBLIC_GID_PRODUCTOS=gid_de_la_hoja_productos
+NEXT_PUBLIC_GID_ORDENES=gid_de_la_hoja_ordenes
+NEXT_PUBLIC_GID_MENSAJES=gid_de_la_hoja_mensajes
+NEXT_PUBLIC_GID_LOGS=gid_de_la_hoja_logs
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Estructura de las Hojas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Hoja 1: PRODUCTOS
+`id | titulo | precio | stock | estado | categoria | fecha_actualizacion | url`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Hoja 2: ÓRDENES/VENTAS
+`id | fecha | comprador | email | producto | cantidad | precio_unit | total | estado | envio`
 
-## Learn More
+### Hoja 3: MENSAJES/PREGUNTAS
+`id | fecha | comprador | producto | mensaje | respondido | respuesta | fecha_respuesta`
 
-To learn more about Next.js, take a look at the following resources:
+### Hoja 4: LOGS DE N8N
+`id | fecha | flujo | accion | estado | detalle | duracion_ms`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Desarrollo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install
+npm run dev
+```
 
-## Deploy on Vercel
+## Deploy en Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Simplemente conecta tu repositorio a Vercel y configura las variables de entorno mencionadas arriba.
