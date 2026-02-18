@@ -29,6 +29,12 @@ import { Producto } from '@/lib/types';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { cn } from '@/lib/utils';
 
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+
 export default function ProductosPage() {
   useAutoRefresh();
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -53,7 +59,8 @@ export default function ProductosPage() {
   }, []);
 
   const filteredProductos = productos.filter(p => {
-    const matchesSearch = p.titulo?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = p.titulo?.toLowerCase().includes(search.toLowerCase()) || 
+                          p.id?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || p.estado === statusFilter;
     const matchesCategory = categoryFilter === 'all' || p.categoria === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
@@ -128,7 +135,7 @@ export default function ProductosPage() {
         <div className="relative w-full md:w-96">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por título..."
+            placeholder="Buscar por título o ID..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -150,7 +157,7 @@ export default function ProductosPage() {
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="all">Todas las categorías</option>
+            <option value="all">Filtro Cod. Producto ML</option>
             {categories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -168,7 +175,7 @@ export default function ProductosPage() {
               <TableHead>Precio</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Categoría</TableHead>
+              <TableHead>Cod. Producto ML</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -183,9 +190,25 @@ export default function ProductosPage() {
               filteredProductos.map((producto) => (
                 <TableRow key={producto.id}>
                   <TableCell>
-                    <div className="h-10 w-10 bg-muted rounded flex items-center justify-center">
-                      <Package className="h-5 w-5 text-muted-foreground" />
-                    </div>
+                    {producto.imagen ? (
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden border cursor-pointer">
+                            <img src={producto.imagen} alt={producto.titulo} className="object-cover h-full w-full" />
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 p-0 overflow-hidden">
+                          <img src={producto.imagen} alt={producto.titulo} className="w-full h-auto" />
+                          <div className="p-4">
+                            <h4 className="text-sm font-semibold">{producto.titulo}</h4>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    ) : (
+                      <div className="h-10 w-10 bg-muted rounded flex items-center justify-center border">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="font-medium max-w-[300px] truncate">
                     {producto.titulo}
@@ -204,10 +227,10 @@ export default function ProductosPage() {
                       producto.estado === 'pausado' ? "bg-amber-500 hover:bg-amber-600" : 
                       "bg-rose-500 hover:bg-rose-600"
                     )}>
-                      {producto.estado.toUpperCase()}
+                      {(producto.estado || 'pausado').toUpperCase()}
                     </Badge>
                   </TableCell>
-                  <TableCell>{producto.categoria}</TableCell>
+                  <TableCell className="font-mono text-xs">{producto.categoria}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" asChild>
                       <a href={producto.url} target="_blank" rel="noopener noreferrer">

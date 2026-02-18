@@ -7,6 +7,7 @@ export interface Producto {
   categoria: string;
   fecha_actualizacion: string;
   url: string;
+  imagen?: string;
 }
 
 export interface Orden {
