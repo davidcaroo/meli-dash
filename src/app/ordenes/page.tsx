@@ -35,11 +35,21 @@ import { format, subDays, isWithinInterval, startOfDay, endOfDay, parseISO } fro
 const ITEMS_PER_PAGE = 20;
 
 const statusColors: Record<string, string> = {
-  pagado: "bg-emerald-500 hover:bg-emerald-600",
-  pendiente: "bg-amber-500 hover:bg-amber-600",
-  cancelado: "bg-rose-500 hover:bg-rose-600",
-  en_proceso: "bg-sky-500 hover:bg-sky-600",
-  enviado: "bg-violet-500 hover:bg-violet-600",
+  paid:        "bg-emerald-500 hover:bg-emerald-600",
+  cancelled:   "bg-rose-500 hover:bg-rose-600",
+  pending:     "bg-amber-500 hover:bg-amber-600",
+  in_process:  "bg-sky-500 hover:bg-sky-600",
+  shipped:     "bg-violet-500 hover:bg-violet-600",
+  delivered:   "bg-teal-500 hover:bg-teal-600",
+};
+
+const statusLabel: Record<string, string> = {
+  paid:        "PAGADO",
+  cancelled:   "CANCELADO",
+  pending:     "PENDIENTE",
+  in_process:  "EN PROCESO",
+  shipped:     "ENVIADO",
+  delivered:   "ENTREGADO",
 };
 
 export default function OrdenesPage() {
@@ -58,7 +68,7 @@ export default function OrdenesPage() {
         setLoading(true);
         const data = await getOrdenes();
         // Sort by date desc
-        setOrdenes(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
+        setOrdenes(data.sort((a, b) => new Date(String(b.fecha)).getTime() - new Date(String(a.fecha)).getTime()));
       } catch (error) {
         console.error(error);
       } finally {
@@ -78,7 +88,7 @@ export default function OrdenesPage() {
       
       let matchesDate = true;
       if (dateFrom || dateTo) {
-        const orderDate = new Date(o.fecha);
+        const orderDate = new Date(String(o.fecha));
         const from = dateFrom ? startOfDay(new Date(dateFrom)) : new Date(0);
         const to = dateTo ? endOfDay(new Date(dateTo)) : new Date(8640000000000000);
         matchesDate = isWithinInterval(orderDate, { start: from, end: to });
@@ -102,7 +112,11 @@ export default function OrdenesPage() {
     }).reverse();
 
     return last14Days.map(date => {
-      const dayOrders = ordenes.filter(o => o.fecha?.startsWith(date));
+      const dayOrders = ordenes.filter(o => {
+        try {
+          return format(new Date(o.fecha), 'yyyy-MM-dd') === date;
+        } catch { return false; }
+      });
       return {
         date,
         total: dayOrders.reduce((acc, o) => acc + o.total, 0),
@@ -116,12 +130,24 @@ export default function OrdenesPage() {
     const thisMonth = format(new Date(), 'yyyy-MM');
 
     return {
-      hoy: ordenes.filter(o => o.fecha?.startsWith(today)).length,
-      mes: ordenes.filter(o => o.fecha?.startsWith(thisMonth)).length,
+      hoy: ordenes.filter(o => {
+        try {
+          return format(new Date(o.fecha), 'yyyy-MM-dd') === today;
+        } catch { return false; }
+      }).length,
+      mes: ordenes.filter(o => {
+        try {
+          return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+        } catch { return false; }
+      }).length,
       ingresosMes: ordenes
-        .filter(o => o.fecha?.startsWith(thisMonth))
+        .filter(o => {
+          try {
+            return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+          } catch { return false; }
+        })
         .reduce((acc, o) => acc + o.total, 0),
-      pendientes: ordenes.filter(o => o.estado === 'pendiente').length,
+      pendientes: ordenes.filter(o => o.estado === 'pending' || o.estado === 'in_process').length,
     };
   }, [ordenes]);
 
@@ -206,11 +232,12 @@ export default function OrdenesPage() {
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             >
               <option value="all">Todos</option>
-              <option value="pagado">Pagado</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="cancelado">Cancelado</option>
-              <option value="en_proceso">En Proceso</option>
-              <option value="enviado">Enviado</option>
+              <option value="paid">Pagado</option>
+              <option value="pending">Pendiente</option>
+              <option value="cancelled">Cancelado</option>
+              <option value="in_process">En Proceso</option>
+              <option value="shipped">Enviado</option>
+              <option value="delivered">Entregado</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -269,7 +296,7 @@ export default function OrdenesPage() {
               paginatedOrdenes.map((orden) => (
                 <TableRow key={orden.id}>
                   <TableCell className="text-xs whitespace-nowrap">
-                    {format(new Date(orden.fecha), 'dd/MM/yy HH:mm')}
+                    {format(new Date(String(orden.fecha)), 'dd/MM/yy HH:mm')}
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex flex-col">
@@ -283,8 +310,8 @@ export default function OrdenesPage() {
                     ${orden.total.toLocaleString('es-AR')}
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn("text-[10px]", statusColors[orden.estado] || "bg-gray-500")}>
-                      {orden.estado.toUpperCase()}
+                    <Badge className={cn("text-[10px] text-white", statusColors[orden.estado] || "bg-gray-500 hover:bg-gray-600")}>
+                      {statusLabel[orden.estado] || orden.estado.toUpperCase()}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs">{orden.envio}</TableCell>

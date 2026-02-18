@@ -70,9 +70,9 @@ export default function ProductosPage() {
 
   const stats = {
     total: productos.length,
-    activos: productos.filter(p => p.estado === 'activo').length,
+    activos: productos.filter(p => p.estado === 'active').length,
     sinStock: productos.filter(p => p.stock === 0).length,
-    pausados: productos.filter(p => p.estado === 'pausado').length,
+    pausados: productos.filter(p => p.estado === 'paused').length,
   };
 
   if (loading) {
@@ -148,9 +148,11 @@ export default function ProductosPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="all">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="pausado">Pausado</option>
-            <option value="cerrado">Cerrado</option>
+            <option value="active">Activo</option>
+            <option value="paused">Pausado</option>
+            <option value="closed">Finalizado</option>
+            <option value="under_review">En revisión</option>
+            <option value="inactive">Inactivo</option>
           </select>
           <select 
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -223,11 +225,13 @@ export default function ProductosPage() {
                   </TableCell>
                   <TableCell>
                     <Badge className={cn(
-                      producto.estado === 'activo' ? "bg-emerald-500 hover:bg-emerald-600" : 
-                      producto.estado === 'pausado' ? "bg-amber-500 hover:bg-amber-600" : 
-                      "bg-rose-500 hover:bg-rose-600"
+                      producto.estado === 'active' ? "bg-emerald-500 hover:bg-emerald-600 text-white" : 
+                      producto.estado === 'paused' ? "bg-amber-500 hover:bg-amber-600 text-white" : 
+                      producto.estado === 'closed' ? "bg-rose-500 hover:bg-rose-600 text-white" :
+                      producto.estado === 'under_review' ? "bg-blue-500 hover:bg-blue-600 text-white" :
+                      "bg-slate-500 hover:bg-slate-600 text-white"
                     )}>
-                      {(producto.estado || 'pausado').toUpperCase()}
+                      {(producto.estado || 'paused').toUpperCase()}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{producto.categoria}</TableCell>

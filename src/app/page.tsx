@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { getProductos, getOrdenes, getMensajes, getLogs } from '@/lib/sheets';
 import { DashboardStats } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 export default function DashboardPage() {
   useAutoRefresh(300000); // 5 minutes
@@ -34,23 +35,35 @@ export default function DashboardPage() {
           getLogs()
         ]);
 
-        const today = new Date().toISOString().split('T')[0];
-        const thisMonth = new Date().toISOString().slice(0, 7);
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const thisMonth = format(new Date(), 'yyyy-MM');
 
         setStats({
           productos: {
             total: productos.length,
-            activos: productos.filter(p => p.estado === 'activo').length,
+            activos: productos.filter(p => p.estado === 'active').length,
             sinStock: productos.filter(p => p.stock === 0).length,
-            pausados: productos.filter(p => p.estado === 'pausado').length,
+            pausados: productos.filter(p => p.estado === 'paused').length,
           },
           ventas: {
-            hoy: ordenes.filter(o => o.fecha?.startsWith(today)).length,
-            mes: ordenes.filter(o => o.fecha?.startsWith(thisMonth)).length,
+            hoy: ordenes.filter(o => {
+              try {
+                return format(new Date(o.fecha), 'yyyy-MM-dd') === today;
+              } catch { return false; }
+            }).length,
+            mes: ordenes.filter(o => {
+              try {
+                return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+              } catch { return false; }
+            }).length,
             ingresosMes: ordenes
-              .filter(o => o.fecha?.startsWith(thisMonth))
+              .filter(o => {
+                try {
+                  return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+                } catch { return false; }
+              })
               .reduce((acc, o) => acc + o.total, 0),
-            pendientes: ordenes.filter(o => o.estado === 'pendiente').length,
+            pendientes: ordenes.filter(o => o.estado === 'pending' || o.estado === 'in_process').length,
           },
           mensajes: {
             sinResponder: mensajes.filter(m => !m.respondido).length,

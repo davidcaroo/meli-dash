@@ -3,7 +3,7 @@ export interface Producto {
   titulo: string;
   precio: number;
   stock: number;
-  estado: "activo" | "pausado" | "cerrado";
+  estado: 'active' | 'paused' | 'closed' | 'under_review' | 'inactive';
   categoria: string;
   fecha_actualizacion: string;
   url: string;
@@ -19,7 +19,7 @@ export interface Orden {
   cantidad: number;
   precio_unit: number;
   total: number;
-  estado: "pagado" | "pendiente" | "cancelado" | "en_proceso" | "enviado";
+  estado: 'paid' | 'pending' | 'cancelled' | 'in_process' | 'shipped' | 'delivered';
   envio: string;
 }
 

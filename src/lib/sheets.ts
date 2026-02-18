@@ -28,7 +28,7 @@ async function fetchCSV<T = Record<string, unknown>>(gid: string): Promise<T[]> 
   return new Promise<T[]>((resolve, reject) => {
     Papa.parse<T>(csvText, {
       header: true,
-      dynamicTyping: true,
+      dynamicTyping: false,
       skipEmptyLines: true,
       complete: (results) => resolve(results.data),
       error: (error: Error) => reject(error),
@@ -42,25 +42,31 @@ export async function getProductos(): Promise<Producto[]> {
     ...item,
     precio: Number(item.precio) || 0,
     stock: Number(item.stock) || 0,
-    estado: (item.estado as string)?.toLowerCase() || 'pausado',
+    estado: String(item.estado || '').toLowerCase() || 'paused',
+    fecha_actualizacion: String(item.fecha_actualizacion || ''),
   })) as Producto[];
 }
 
 export async function getOrdenes(): Promise<Orden[]> {
   const data = await fetchCSV<any>(GID_ORDENES!);
-  return data.map((item: any) => ({
-    ...item,
-    cantidad: Number(item.cantidad) || 0,
-    precio_unit: Number(item.precio_unit) || 0,
-    total: Number(item.total) || 0,
-    estado: (item.estado as string)?.toLowerCase() || 'pendiente',
-  })) as Orden[];
+  return data.map((item: any) => {
+    return {
+      ...item,
+      fecha: String(item.fecha || ''),
+      cantidad: Number(item.cantidad) || 0,
+      precio_unit: Number(item.precio_unit) || 0,
+      total: Number(item.total) || 0,
+      estado: String(item.estado || '').toLowerCase() || 'pending',
+      envio: String(item.envio || ''),
+    };
+  }) as Orden[];
 }
 
 export async function getMensajes(): Promise<Mensaje[]> {
   const data = await fetchCSV<any>(GID_MENSAJES!);
   return data.map((item: any) => ({
     ...item,
+    fecha: String(item.fecha || ''),
     respondido: item.respondido === 'true' || item.respondido === true || item.respondido === 'SI',
   })) as Mensaje[];
 }
@@ -69,7 +75,8 @@ export async function getLogs(): Promise<Log[]> {
   const data = await fetchCSV<any>(GID_LOGS!);
   return data.map((item: any) => ({
     ...item,
-    estado: (item.estado as string)?.toLowerCase() || 'info',
+    fecha: String(item.fecha || ''),
+    estado: String(item.estado || '').toLowerCase() || 'info',
     duracion_ms: Number(item.duracion_ms) || 0,
   })) as Log[];
 }
