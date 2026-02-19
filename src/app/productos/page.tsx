@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/hover-card";
 
 export default function ProductosPage() {
-  useAutoRefresh();
+  const { lastRefresh } = useAutoRefresh();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -56,7 +56,7 @@ export default function ProductosPage() {
       }
     }
     loadData();
-  }, []);
+  }, [lastRefresh]);
 
   const filteredProductos = productos.filter(p => {
     const matchesSearch = p.titulo?.toLowerCase().includes(search.toLowerCase()) || 

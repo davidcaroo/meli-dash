@@ -53,7 +53,7 @@ const statusLabel: Record<string, string> = {
 };
 
 export default function OrdenesPage() {
-  useAutoRefresh();
+  const { lastRefresh } = useAutoRefresh();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -76,7 +76,7 @@ export default function OrdenesPage() {
       }
     }
     loadData();
-  }, []);
+  }, [lastRefresh]);
 
   const filteredOrdenes = useMemo(() => {
     return ordenes.filter(o => {

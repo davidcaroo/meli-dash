@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
 export default function DashboardPage() {
-  useAutoRefresh(300000); // 5 minutes
+  const { lastRefresh } = useAutoRefresh(300000); // 5 minutes
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export default function DashboardPage() {
     }
 
     loadStats();
-  }, []);
+  }, [lastRefresh]);
 
   if (loading) {
     return (
