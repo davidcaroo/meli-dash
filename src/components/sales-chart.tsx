@@ -52,7 +52,7 @@ export function SalesChart({ data }: SalesChartProps) {
                     return (
                       <div className="bg-card border p-2 rounded shadow-sm">
                         <p className="text-xs font-bold">{payload[0].payload.date}</p>
-                        <p className="text-xs text-primary">Ventas: ${payload[0].value?.toLocaleString()}</p>
+                        <p className="text-xs text-emerald-500 font-medium">Ventas: ${payload[0].value?.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Órdenes: {payload[0].payload.count}</p>
                       </div>
                     );
@@ -62,9 +62,8 @@ export function SalesChart({ data }: SalesChartProps) {
               />
               <Bar 
                 dataKey="total" 
-                fill="currentColor" 
                 radius={[4, 4, 0, 0]} 
-                className="fill-primary" 
+                className="fill-emerald-500" 
               />
             </BarChart>
           </ResponsiveContainer>
