@@ -281,6 +281,7 @@ export default function OrdenesPage() {
               <TableHead>Fecha</TableHead>
               <TableHead>Comprador</TableHead>
               <TableHead>Producto</TableHead>
+              <TableHead>SKU</TableHead>
               <TableHead>Cant.</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Estado</TableHead>
@@ -290,7 +291,7 @@ export default function OrdenesPage() {
           <TableBody>
             {paginatedOrdenes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                   No se encontraron órdenes.
                 </TableCell>
               </TableRow>
@@ -312,7 +313,10 @@ export default function OrdenesPage() {
                       <span className="text-[10px] text-muted-foreground">{orden.email}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate">{orden.producto}</TableCell>
+                  <TableCell className="max-w-[180px] truncate">{orden.producto}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    {orden.sku ?? '—'}
+                  </TableCell>
                   <TableCell>{orden.cantidad}</TableCell>
                   <TableCell className="font-semibold">
                     ${orden.total.toLocaleString('es-AR')}

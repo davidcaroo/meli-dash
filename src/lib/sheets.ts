@@ -58,6 +58,7 @@ export async function getOrdenes(): Promise<Orden[]> {
       total: Number(item.total) || 0,
       estado: String(item.estado || '').toLowerCase() || 'pending',
       envio: String(item.envio || ''),
+      sku: String(item.sku || '').trim() || undefined,
     };
   }) as Orden[];
 }

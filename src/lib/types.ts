@@ -21,6 +21,7 @@ export interface Orden {
   total: number;
   estado: 'paid' | 'pending' | 'cancelled' | 'in_process' | 'shipped' | 'delivered';
   envio: string;
+  sku?: string;
 }
 
 export interface Mensaje {
