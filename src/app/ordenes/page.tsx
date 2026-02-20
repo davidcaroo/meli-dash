@@ -8,6 +8,7 @@ import {
   Calendar, 
   DollarSign, 
   TrendingUp,
+  TrendingDown,
   ChevronLeft,
   ChevronRight,
   AlertCircle
@@ -145,7 +146,15 @@ export default function OrdenesPage() {
         .filter(o => {
           try {
             if (!o.fecha) return false;
-            return isSameMonth(parseISO(o.fecha), now);
+            return isSameMonth(parseISO(o.fecha), now) && o.estado === 'paid';
+          } catch { return false; }
+        })
+        .reduce((acc, o) => acc + o.total, 0),
+      salidasMes: ordenes
+        .filter(o => {
+          try {
+            if (!o.fecha) return false;
+            return isSameMonth(parseISO(o.fecha), now) && o.estado === 'cancelled';
           } catch { return false; }
         })
         .reduce((acc, o) => acc + o.total, 0),
@@ -170,7 +179,7 @@ export default function OrdenesPage() {
   return (
     <div className="space-y-6 pb-12">
       {/* Resumen */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ventas Hoy</CardTitle>
@@ -192,10 +201,19 @@ export default function OrdenesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Mes</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary" />
+            <DollarSign className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.ingresosMes.toLocaleString('es-AR')}</div>
+            <div className="text-2xl font-bold text-emerald-600">${stats.ingresosMes.toLocaleString('es-AR')}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Salidas Mes</CardTitle>
+            <TrendingDown className="h-4 w-4 text-rose-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-rose-600">${stats.salidasMes.toLocaleString('es-AR')}</div>
           </CardContent>
         </Card>
         <Card>

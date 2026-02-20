@@ -56,6 +56,7 @@ export interface DashboardStats {
     hoy: number;
     mes: number;
     ingresosMes: number;
+    salidasMes: number;
     pendientes: number;
   };
   mensajes: {

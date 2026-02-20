@@ -8,7 +8,8 @@ import {
   TrendingUp,
   AlertCircle,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  TrendingDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
@@ -61,7 +62,15 @@ export default function DashboardPage() {
               .filter(o => {
                 try {
                   if (!o.fecha) return false;
-                  return isSameMonth(parseISO(o.fecha), now);
+                  return isSameMonth(parseISO(o.fecha), now) && o.estado === 'paid';
+                } catch { return false; }
+              })
+              .reduce((acc, o) => acc + o.total, 0),
+            salidasMes: ordenes
+              .filter(o => {
+                try {
+                  if (!o.fecha) return false;
+                  return isSameMonth(parseISO(o.fecha), now) && o.estado === 'cancelled';
                 } catch { return false; }
               })
               .reduce((acc, o) => acc + o.total, 0),
@@ -134,7 +143,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h3 className="text-lg font-medium">Resumen General</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mt-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Productos Activos</CardTitle>
@@ -149,13 +158,29 @@ export default function DashboardPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ventas del Mes</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-pink-500" />
+              <CardTitle className="text-sm font-medium">Ingresos Mes</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.ventas.mes}</div>
+              <div className="text-2xl font-bold text-emerald-600">
+                ${stats?.ventas.ingresosMes.toLocaleString('es-AR')}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Ingresos: ${stats?.ventas.ingresosMes.toLocaleString('es-AR')}
+                {stats?.ventas.mes} órdenes pagadas
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Salidas Mes</CardTitle>
+              <TrendingDown className="h-4 w-4 text-rose-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-rose-600">
+                ${stats?.ventas.salidasMes.toLocaleString('es-AR')}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Devoluciones por cancelaciones
               </p>
             </CardContent>
           </Card>
