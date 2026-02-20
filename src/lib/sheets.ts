@@ -126,7 +126,8 @@ export async function getShopifyOrders(): Promise<ShopifyOrder[]> {
       estado: item["Listado"] || 'Nuevo',
       guia: item["No Guia"] || '',
       fecha: isoDate || rawDate,
-      total
+      total,
+      rowIndex: index + 2
     };
   }) as ShopifyOrder[];
 }

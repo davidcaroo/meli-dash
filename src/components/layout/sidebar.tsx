@@ -94,7 +94,7 @@ export function Sidebar() {
                   </span>
                 )}
                 {route.label === 'Shopify' && shopifyCount > 0 && (
-                  <span className="absolute right-3 top-3 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                  <span className="absolute right-3 top-3 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
                     {shopifyCount}
                   </span>
                 )}

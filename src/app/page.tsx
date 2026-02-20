@@ -16,12 +16,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getProductos, getOrdenes, getMensajes, getLogs, getShopifyOrders } from '@/lib/sheets';
 import { DashboardStats } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO, isSameDay, isSameMonth } from 'date-fns';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { lastRefresh } = useAutoRefresh(300000); // 5 minutes
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,24 +205,29 @@ export default function DashboardPage() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-muted/50 transition-colors border-orange-100 dark:border-orange-900/30"
+            onClick={() => router.push('/shopify')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Shopify</CardTitle>
-              <ShoppingBag className="h-4 w-4 text-blue-500" />
+              <ShoppingBag className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-2">
-                {stats?.shopify.nuevosHoy ?? 0}
-                {stats && stats.shopify.nuevosTotal > 0 && (
-                  <Badge className="bg-rose-500 text-[10px] h-4">+{stats.shopify.nuevosTotal}</Badge>
-                )}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Pedidos nuevos</span>
+                  <span className="text-sm font-bold text-orange-600">{stats?.shopify.nuevosTotal}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Para despachar</span>
+                  <span className="text-sm font-bold text-blue-600">{stats?.shopify.pendientesDespacho}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t">
+                  <span className="text-xs font-semibold">Ingresos Mes</span>
+                  <span className="text-sm font-bold">${stats?.shopify.ingresosMes.toLocaleString('es-CO')}</span>
+                </div>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Ingresos: ${stats?.shopify.ingresosMes.toLocaleString('es-CO')}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                Pendientes: {stats?.shopify.pendientesDespacho}
-              </p>
             </CardContent>
           </Card>
           <Card>

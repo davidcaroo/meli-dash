@@ -58,6 +58,7 @@ export interface ShopifyOrder {
   guia: string;
   fecha: string;
   total: number;
+  rowIndex: number;
 }
 
 export interface DashboardStats {

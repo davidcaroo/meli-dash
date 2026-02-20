@@ -23,6 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { 
   Table, 
   TableBody, 
@@ -34,6 +35,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getShopifyOrders } from '@/lib/sheets';
+import { actualizarPedido } from '@/lib/shopify-webhook';
 import { ShopifyOrder } from '@/lib/types';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { cn } from '@/lib/utils';
@@ -68,27 +70,51 @@ export default function ShopifyPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const data = await getShopifyOrders();
+      // Ordenar por fila descendente (más recientes arriba)
+      const sortedData = [...data].sort((a, b) => b.rowIndex - a.rowIndex);
+      setOrders(sortedData);
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al cargar pedidos de Shopify');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const data = await getShopifyOrders();
-        // Sort by date desc, handling invalid dates
-        setOrders(data.sort((a, b) => {
-          const dateA = a.fecha ? new Date(a.fecha).getTime() : 0;
-          const dateB = b.fecha ? new Date(b.fecha).getTime() : 0;
-          return dateB - dateA;
-        }));
-      } catch (error) {
-        console.error(error);
-        toast.error('Error al cargar pedidos de Shopify');
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, [lastRefresh]);
+
+  const handleUpdate = async (order: ShopifyOrder, field: 'estado' | 'guia', value: string) => {
+    if (!value || value === order[field === 'estado' ? 'estado' : 'guia']) return;
+    
+    setUpdatingId(`${order.id}-${field}`);
+    const action = field === 'estado' ? 'update_estado' : 'update_guia';
+    
+    toast.info(`Actualizando ${field === 'estado' ? 'estado' : 'guía'}...`);
+    
+    const result = await actualizarPedido(action, order.rowIndex, value);
+    
+    if (result.success) {
+      console.log('n8n response:', (result as any).n8nResponse);
+      toast.success(`${field === 'estado' ? 'Estado actualizado' : 'Guía guardada'} ✓`);
+      // Esperar un momento para que Google Drive actualice el export CSV
+      setTimeout(() => loadData(), 2000);
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder(prev => prev ? { ...prev, [field === 'estado' ? 'estado' : 'guia']: value } : null);
+      }
+    } else {
+      toast.error(`Error al actualizar: ${result.error}`);
+    }
+    
+    setUpdatingId(null);
+  };
 
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
@@ -127,9 +153,9 @@ export default function ShopifyPage() {
     });
 
     return {
-      totalMes: monthOrders.length,
       nuevos: orders.filter(o => o.estado === 'Nuevo').length,
-      despachadosMes: monthOrders.filter(o => o.estado === 'Despachado' || o.estado === 'Entregado').length,
+      paraDespachar: orders.filter(o => o.estado === 'Preparado').length,
+      despachadosMes: monthOrders.filter(o => o.estado === 'Despachado').length,
       ingresosMes: monthOrders.reduce((acc, o) => acc + o.total, 0),
     };
   }, [orders]);
@@ -220,15 +246,6 @@ export default function ShopifyPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pedidos del Mes</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalMes}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pedidos Nuevos</CardTitle>
             <Clock className={cn("h-4 w-4", stats.nuevos > 0 ? "text-rose-500 animate-pulse" : "text-muted-foreground")} />
           </CardHeader>
@@ -236,6 +253,15 @@ export default function ShopifyPage() {
             <div className={cn("text-2xl font-bold", stats.nuevos > 0 ? "text-rose-600" : "")}>
               {stats.nuevos}
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Para Despachar</CardTitle>
+            <Package className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.paraDespachar}</div>
           </CardContent>
         </Card>
         <Card>
@@ -297,6 +323,19 @@ export default function ShopifyPage() {
             <label className="text-xs font-medium">Hasta</label>
             <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-10 px-4"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('all');
+              setFromDate('');
+              setToDate('');
+            }}
+          >
+            Limpiar filtros
+          </Button>
         </div>
       </Card>
 
@@ -305,6 +344,7 @@ export default function ShopifyPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]"># Fila</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Producto</TableHead>
@@ -325,6 +365,9 @@ export default function ShopifyPage() {
             ) : (
               paginatedOrders.map((order) => (
                 <TableRow key={order.id}>
+                  <TableCell className="text-[10px] text-muted-foreground font-mono">
+                    {order.rowIndex}
+                  </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     {order.fecha ? (() => {
                       try {
@@ -342,27 +385,41 @@ export default function ShopifyPage() {
                   <TableCell className="font-semibold whitespace-nowrap">
                     ${order.total.toLocaleString('es-CO')}
                   </TableCell>
-                  <TableCell>{getStatusBadge(order.estado)}</TableCell>
                   <TableCell>
-                    {order.guia ? (
+                    {updatingId === `${order.id}-estado` ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : (
+                      <select
+                        className="text-[10px] font-medium bg-transparent border-none focus:ring-0 cursor-pointer"
+                        value={order.estado}
+                        onChange={(e) => handleUpdate(order, 'estado', e.target.value)}
+                      >
+                        <option value="Nuevo">NUEVO</option>
+                        <option value="Preparado">PREPARADO</option>
+                        <option value="Despachado">DESPACHADO</option>
+                        <option value="Entregado">ENTREGADO</option>
+                      </select>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {updatingId === `${order.id}-guia` ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : order.guia ? (
                       <Badge variant="secondary" className="font-mono text-[10px] cursor-pointer" onClick={() => copyGuide(order.guia)}>
                         {order.guia}
                       </Badge>
                     ) : (
                       <Input 
-                        placeholder="Guía..." 
+                        placeholder="Agregar guía..." 
                         className="h-7 text-[10px] w-24"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            copyGuide((e.target as HTMLInputElement).value);
-                            (e.target as HTMLInputElement).value = '';
+                            handleUpdate(order, 'guia', (e.target as HTMLInputElement).value);
                           }
                         }}
                         onBlur={(e) => {
-                          if (e.target.value) {
-                            copyGuide(e.target.value);
-                            e.target.value = '';
-                          }
+                          const val = (e.target as HTMLInputElement).value;
+                          if (val) handleUpdate(order, 'guia', val);
                         }}
                       />
                     )}
@@ -489,7 +546,7 @@ export default function ShopifyPage() {
                 />
                 <Bar 
                   dataKey="total" 
-                  fill="#3b82f6" 
+                  fill="#f97316" 
                   radius={[4, 4, 0, 0]} 
                   barSize={30}
                 />
@@ -505,7 +562,7 @@ export default function ShopifyPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingBag className="h-5 w-5 text-primary" />
-              Detalle del Pedido
+              Detalle del Pedido <span className="text-muted-foreground font-normal"># Fila {selectedOrder?.rowIndex}</span>
             </DialogTitle>
           </DialogHeader>
           
@@ -588,12 +645,53 @@ export default function ShopifyPage() {
                 </div>
               )}
 
-              <div className="pt-2 border-t flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase">Guía:</span>
-                  <Badge variant="secondary" className="font-mono">{selectedOrder.guia || 'Pendiente'}</Badge>
+              <div className="pt-2 border-t space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                    <Truck className="h-3 w-3" /> Envío y Guía
+                  </h4>
+                  {updatingId?.includes(selectedOrder.id) && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                 </div>
-                <Button size="sm" onClick={() => setSelectedOrder(null)}>Cerrar</Button>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-muted-foreground font-bold">Estado</label>
+                    <select
+                      className="w-full text-xs font-medium rounded-md border border-input bg-background px-2 py-1"
+                      value={selectedOrder.estado}
+                      onChange={(e) => handleUpdate(selectedOrder, 'estado', e.target.value)}
+                    >
+                      <option value="Nuevo">Nuevo</option>
+                      <option value="Preparado">Preparado</option>
+                      <option value="Despachado">Despachado</option>
+                      <option value="Entregado">Entregado</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-muted-foreground font-bold">Número de Guía</label>
+                    <div className="flex gap-1">
+                      <Input 
+                        placeholder="Agregar..." 
+                        className="h-7 text-xs" 
+                        defaultValue={selectedOrder.guia}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleUpdate(selectedOrder, 'guia', (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                      />
+                      {selectedOrder.guia && (
+                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => copyGuide(selectedOrder.guia)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <Button size="sm" onClick={() => setSelectedOrder(null)}>Cerrar</Button>
+                </div>
               </div>
             </div>
           )}
