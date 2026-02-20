@@ -30,7 +30,7 @@ import { Orden } from '@/lib/types';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { SalesChart } from '@/components/sales-chart';
 import { cn } from '@/lib/utils';
-import { format, subDays, isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { format, subDays, isWithinInterval, startOfDay, endOfDay, parseISO, isSameDay, isSameMonth } from 'date-fns';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -126,24 +126,26 @@ export default function OrdenesPage() {
   }, [ordenes]);
 
   const stats = useMemo(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const thisMonth = format(new Date(), 'yyyy-MM');
+    const now = new Date();
 
     return {
       hoy: ordenes.filter(o => {
         try {
-          return format(new Date(o.fecha), 'yyyy-MM-dd') === today;
+          if (!o.fecha) return false;
+          return isSameDay(parseISO(o.fecha), now);
         } catch { return false; }
       }).length,
       mes: ordenes.filter(o => {
         try {
-          return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+          if (!o.fecha) return false;
+          return isSameMonth(parseISO(o.fecha), now);
         } catch { return false; }
       }).length,
       ingresosMes: ordenes
         .filter(o => {
           try {
-            return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+            if (!o.fecha) return false;
+            return isSameMonth(parseISO(o.fecha), now);
           } catch { return false; }
         })
         .reduce((acc, o) => acc + o.total, 0),
@@ -296,7 +298,13 @@ export default function OrdenesPage() {
               paginatedOrdenes.map((orden) => (
                 <TableRow key={orden.id}>
                   <TableCell className="text-xs whitespace-nowrap">
-                    {format(new Date(String(orden.fecha)), 'dd/MM/yy HH:mm')}
+                    {(() => {
+                      try {
+                        return format(parseISO(String(orden.fecha)), 'dd/MM/yy HH:mm');
+                      } catch {
+                        return 'Fecha inválida';
+                      }
+                    })()}
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex flex-col">

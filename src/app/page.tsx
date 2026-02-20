@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { getProductos, getOrdenes, getMensajes, getLogs } from '@/lib/sheets';
 import { DashboardStats } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, parseISO, isSameDay, isSameMonth } from 'date-fns';
 
 export default function DashboardPage() {
   const { lastRefresh } = useAutoRefresh(300000); // 5 minutes
@@ -35,8 +35,7 @@ export default function DashboardPage() {
           getLogs()
         ]);
 
-        const today = format(new Date(), 'yyyy-MM-dd');
-        const thisMonth = format(new Date(), 'yyyy-MM');
+        const now = new Date();
 
         setStats({
           productos: {
@@ -48,18 +47,21 @@ export default function DashboardPage() {
           ventas: {
             hoy: ordenes.filter(o => {
               try {
-                return format(new Date(o.fecha), 'yyyy-MM-dd') === today;
+                if (!o.fecha) return false;
+                return isSameDay(parseISO(o.fecha), now);
               } catch { return false; }
             }).length,
             mes: ordenes.filter(o => {
               try {
-                return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+                if (!o.fecha) return false;
+                return isSameMonth(parseISO(o.fecha), now);
               } catch { return false; }
             }).length,
             ingresosMes: ordenes
               .filter(o => {
                 try {
-                  return format(new Date(o.fecha), 'yyyy-MM') === thisMonth;
+                  if (!o.fecha) return false;
+                  return isSameMonth(parseISO(o.fecha), now);
                 } catch { return false; }
               })
               .reduce((acc, o) => acc + o.total, 0),
@@ -69,8 +71,18 @@ export default function DashboardPage() {
             sinResponder: mensajes.filter(m => !m.respondido).length,
           },
           logs: {
-            ejecucionesHoy: logs.filter(l => l.fecha?.startsWith(today)).length,
-            erroresHoy: logs.filter(l => l.fecha?.startsWith(today) && l.estado === 'error').length,
+            ejecucionesHoy: logs.filter(l => {
+              try {
+                if (!l.fecha) return false;
+                return isSameDay(parseISO(l.fecha), now);
+              } catch { return false; }
+            }).length,
+            erroresHoy: logs.filter(l => {
+              try {
+                if (!l.fecha) return false;
+                return isSameDay(parseISO(l.fecha), now) && l.estado === 'error';
+              } catch { return false; }
+            }).length,
             tasaExito: logs.length > 0 
               ? (logs.filter(l => l.estado === 'success').length / logs.length) * 100 
               : 100,
