@@ -45,6 +45,21 @@ export interface Log {
   duracion_ms: number;
 }
 
+export interface ShopifyOrder {
+  id: string; // Internal ID for keys
+  cliente: string;
+  telefono: string;
+  direccion: string;
+  producto: string;
+  ean: string;
+  detalles: string;
+  cantidad: number;
+  estado: 'Nuevo' | 'Preparado' | 'Despachado' | 'Entregado';
+  guia: string;
+  fecha: string;
+  total: number;
+}
+
 export interface DashboardStats {
   productos: {
     total: number;
@@ -66,5 +81,11 @@ export interface DashboardStats {
     ejecucionesHoy: number;
     erroresHoy: number;
     tasaExito: number;
+  };
+  shopify: {
+    nuevosHoy: number;
+    ingresosMes: number;
+    pendientesDespacho: number;
+    nuevosTotal: number;
   };
 }

@@ -9,13 +9,15 @@ import {
   MessageSquare, 
   History,
   Menu,
-  X
+  X,
+  ShoppingBag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 import { useMessagesCount } from '@/hooks/use-messages-count';
+import { useShopifyCount } from '@/hooks/use-shopify-count';
 
 const routes = [
   {
@@ -43,6 +45,12 @@ const routes = [
     color: 'text-orange-700',
   },
   {
+    label: 'Shopify',
+    icon: ShoppingBag,
+    href: '/shopify',
+    color: 'text-blue-600',
+  },
+  {
     label: 'Logs',
     icon: History,
     href: '/logs',
@@ -54,6 +62,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const unreadCount = useMessagesCount();
+  const shopifyCount = useShopifyCount();
 
   return (
     <>
@@ -82,6 +91,11 @@ export function Sidebar() {
                 {route.label === 'Mensajes' && unreadCount > 0 && (
                   <span className="absolute right-3 top-3 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                     {unreadCount}
+                  </span>
+                )}
+                {route.label === 'Shopify' && shopifyCount > 0 && (
+                  <span className="absolute right-3 top-3 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                    {shopifyCount}
                   </span>
                 )}
               </Link>

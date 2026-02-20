@@ -9,12 +9,14 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
-  TrendingDown
+  TrendingDown,
+  ShoppingBag
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useEffect, useState } from 'react';
-import { getProductos, getOrdenes, getMensajes, getLogs } from '@/lib/sheets';
+import { getProductos, getOrdenes, getMensajes, getLogs, getShopifyOrders } from '@/lib/sheets';
 import { DashboardStats } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO, isSameDay, isSameMonth } from 'date-fns';
@@ -29,11 +31,12 @@ export default function DashboardPage() {
     async function loadStats() {
       try {
         setLoading(true);
-        const [productos, ordenes, mensajes, logs] = await Promise.all([
+        const [productos, ordenes, mensajes, logs, shopify] = await Promise.all([
           getProductos(),
           getOrdenes(),
           getMensajes(),
-          getLogs()
+          getLogs(),
+          getShopifyOrders()
         ]);
 
         const now = new Date();
@@ -95,6 +98,22 @@ export default function DashboardPage() {
             tasaExito: logs.length > 0 
               ? (logs.filter(l => l.estado === 'success').length / logs.length) * 100 
               : 100,
+          },
+          shopify: {
+            nuevosHoy: shopify.filter((o: any) => {
+              try {
+                return o.fecha && isSameDay(parseISO(o.fecha), now) && o.estado === 'Nuevo';
+              } catch { return false; }
+            }).length,
+            ingresosMes: shopify
+              .filter((o: any) => {
+                try {
+                  return o.fecha && isSameMonth(parseISO(o.fecha), now);
+                } catch { return false; }
+              })
+              .reduce((acc: number, o: any) => acc + o.total, 0),
+            pendientesDespacho: shopify.filter((o: any) => o.estado === 'Nuevo' || o.estado === 'Preparado').length,
+            nuevosTotal: shopify.filter((o: any) => o.estado === 'Nuevo').length
           }
         });
       } catch (err: any) {
@@ -143,7 +162,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h3 className="text-lg font-medium">Resumen General</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mt-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mt-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Productos Activos</CardTitle>
@@ -181,6 +200,26 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Devoluciones por cancelaciones
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Shopify</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold flex items-center gap-2">
+                {stats?.shopify.nuevosHoy ?? 0}
+                {stats && stats.shopify.nuevosTotal > 0 && (
+                  <Badge className="bg-rose-500 text-[10px] h-4">+{stats.shopify.nuevosTotal}</Badge>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Ingresos: ${stats?.shopify.ingresosMes.toLocaleString('es-CO')}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Pendientes: {stats?.shopify.pendientesDespacho}
               </p>
             </CardContent>
           </Card>
