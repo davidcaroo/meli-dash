@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
   Package, 
   Search, 
   ExternalLink, 
-  TrendingUp, 
   AlertTriangle, 
   PauseCircle,
   CheckCircle2,
-  Filter
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,8 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 
+const selectClass = "flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+
 export default function ProductosPage() {
   const { lastRefresh } = useAutoRefresh();
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -42,6 +44,8 @@ export default function ProductosPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     async function loadData() {
@@ -58,22 +62,54 @@ export default function ProductosPage() {
     loadData();
   }, [lastRefresh]);
 
-  const filteredProductos = productos.filter(p => {
-    const matchesSearch = p.titulo?.toLowerCase().includes(search.toLowerCase()) || 
-                          p.id?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || p.estado === statusFilter;
-    const matchesCategory = categoryFilter === 'all' || p.categoria === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
-  });
+  const filteredProductos = useMemo(() => {
+    const result = productos.filter(p => {
+      const matchesSearch = p.titulo?.toLowerCase().includes(search.toLowerCase()) || 
+                            p.id?.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || p.estado === statusFilter;
+      const matchesCategory = categoryFilter === 'all' || p.categoria === categoryFilter;
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+    return result;
+  }, [productos, search, statusFilter, categoryFilter]);
 
-  const categories = Array.from(new Set(productos.map(p => p.categoria))).filter(Boolean);
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, categoryFilter, itemsPerPage]);
 
-  const stats = {
+  const totalPages = Math.max(1, Math.ceil(filteredProductos.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProductos = filteredProductos.slice(startIndex, startIndex + itemsPerPage);
+
+  const categories = useMemo(
+    () => Array.from(new Set(productos.map(p => p.categoria))).filter(Boolean),
+    [productos]
+  );
+
+  const stats = useMemo(() => ({
     total: productos.length,
     activos: productos.filter(p => p.estado === 'active').length,
     sinStock: productos.filter(p => p.stock === 0).length,
     pausados: productos.filter(p => p.estado === 'paused').length,
-  };
+  }), [productos]);
+
+  // Generate page numbers to show
+  const pageNumbers = useMemo(() => {
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  }, [currentPage, totalPages]);
 
   if (loading) {
     return (
@@ -131,19 +167,19 @@ export default function ProductosPage() {
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por título o ID..."
-            className="pl-8"
+            className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-          <select 
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <select
+            className={selectClass}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -154,16 +190,30 @@ export default function ProductosPage() {
             <option value="under_review">En revisión</option>
             <option value="inactive">Inactivo</option>
           </select>
-          <select 
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          <select
+            className={selectClass}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="all">Filtro Cod. Producto ML</option>
+            <option value="all">Cod. Producto (todos)</option>
             {categories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
+          {(search || statusFilter !== 'all' || categoryFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch('');
+                setStatusFilter('all');
+                setCategoryFilter('all');
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Limpiar filtros
+            </Button>
+          )}
         </div>
       </div>
 
@@ -172,7 +222,7 @@ export default function ProductosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px]">Imagen</TableHead>
+              <TableHead className="w-[70px]">Imagen</TableHead>
               <TableHead>Título</TableHead>
               <TableHead>Precio</TableHead>
               <TableHead>Stock</TableHead>
@@ -182,14 +232,14 @@ export default function ProductosPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProductos.length === 0 ? (
+            {paginatedProductos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   No se encontraron productos.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredProductos.map((producto) => (
+              paginatedProductos.map((producto) => (
                 <TableRow key={producto.id}>
                   <TableCell>
                     {producto.imagen ? (
@@ -212,7 +262,7 @@ export default function ProductosPage() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="font-medium max-w-[300px] truncate">
+                  <TableCell className="font-medium max-w-[280px] truncate">
                     {producto.titulo}
                   </TableCell>
                   <TableCell>
@@ -247,6 +297,68 @@ export default function ProductosPage() {
             )}
           </TableBody>
         </Table>
+
+        {/* Paginación */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 border-t">
+          {/* Resultados + selector */}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              {filteredProductos.length === 0
+                ? 'Sin resultados'
+                : `Mostrando ${startIndex + 1}–${Math.min(startIndex + itemsPerPage, filteredProductos.length)} de ${filteredProductos.length} producto${filteredProductos.length !== 1 ? 's' : ''}`}
+            </span>
+            <select
+              className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            >
+              <option value={10}>10 / pág.</option>
+              <option value={15}>15 / pág.</option>
+              <option value={25}>25 / pág.</option>
+            </select>
+          </div>
+
+          {/* Navegación */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {pageNumbers.map((p, i) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-sm">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={currentPage === p ? 'default' : 'outline'}
+                    size="icon"
+                    className="h-8 w-8 text-sm"
+                    onClick={() => setCurrentPage(p)}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   );
