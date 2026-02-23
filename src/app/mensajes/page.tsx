@@ -8,8 +8,24 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Clock,
-  Filter
+  Filter,
+  Send,
+  Plus,
+  Star,
+  Trash2,
+  Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { mlActions } from '@/lib/ml-actions';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,21 +51,39 @@ export default function MensajesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'responded' | 'pending'>('all');
+  const [replyText, setReplyText] = useState<{ [key: string]: string }>({});
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [customTemplates, setCustomTemplates] = useState<string[]>([]);
+  const [newTemplate, setNewTemplate] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const defaultTemplates = [
+    "Hola, sí tenemos disponibilidad del producto 😊",
+    "El pedido se despacha en 24-48 horas hábiles",
+    "Manejamos todos los tallajes, escríbenos tu medida de pie en cm",
+    "Hacemos envíos a todo Colombia por Mercado Envíos",
+    "Puedes ver más información del producto en la publicación"
+  ];
+
+  const allTemplates = [...defaultTemplates, ...customTemplates];
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const data = await getMensajes();
+      setMensajes(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al cargar mensajes');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const data = await getMensajes();
-        // Sort by date desc
-        setMensajes(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
+    const saved = localStorage.getItem('meli_custom_templates');
+    if (saved) setCustomTemplates(JSON.parse(saved));
   }, []);
 
   const filteredMensajes = useMemo(() => {
@@ -218,7 +252,7 @@ export default function MensajesPage() {
                         "{m.mensaje}"
                       </p>
                     </TableCell>
-                    <TableCell className="max-w-[300px]">
+                    <TableCell className="max-w-[400px]">
                       {m.respondido ? (
                         <div className="flex flex-col gap-1">
                           <p className="text-sm line-clamp-2">{m.respuesta}</p>
@@ -227,9 +261,93 @@ export default function MensajesPage() {
                           </span>
                         </div>
                       ) : (
-                        <Button variant="outline" size="sm" className="h-8 text-[10px]">
-                          Responder
-                        </Button>
+                        <div className="space-y-3 py-2">
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {allTemplates.slice(0, 4).map((template, idx) => (
+                              <Badge 
+                                key={idx} 
+                                variant="outline" 
+                                className="cursor-pointer hover:bg-primary/5 text-[10px] py-0 px-2 h-6"
+                                onClick={() => setReplyText({ ...replyText, [m.id]: template })}
+                              >
+                                {idx >= defaultTemplates.length && <Star className="h-2 w-2 mr-1 fill-amber-400 text-amber-400" />}
+                                {template.substring(0, 25)}...
+                              </Badge>
+                            ))}
+                            <Dialog open={isDialogOpen && sendingId === m.id} onOpenChange={setIsDialogOpen}>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setSendingId(m.id)}>
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Nuevo Template</DialogTitle>
+                                </DialogHeader>
+                                <Input 
+                                  placeholder="Escribe tu respuesta frecuente..." 
+                                  value={newTemplate}
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTemplate(e.target.value)}
+                                />
+                                <DialogFooter>
+                                  <Button onClick={() => {
+                                    if (!newTemplate.trim()) return;
+                                    const updated = [...customTemplates, newTemplate.trim()];
+                                    setCustomTemplates(updated);
+                                    localStorage.setItem('meli_custom_templates', JSON.stringify(updated));
+                                    setNewTemplate('');
+                                    setIsDialogOpen(false);
+                                    setSendingId(null);
+                                    toast.success('Template guardado');
+                                  }}>Guardar Template</Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+
+                          <div className="relative">
+                            <Textarea 
+                              placeholder="Escribe tu respuesta..."
+                              className="min-h-[80px] text-sm resize-none pr-10"
+                              value={replyText[m.id] || ''}
+                              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReplyText({ ...replyText, [m.id]: e.target.value })}
+                              maxLength={2000}
+                              disabled={sendingId === m.id}
+                            />
+                            <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                              <span className={cn(
+                                "text-[10px]",
+                                (replyText[m.id]?.length || 0) > 1800 ? "text-rose-500 font-bold" : "text-muted-foreground"
+                              )}>
+                                {replyText[m.id]?.length || 0}/2000
+                              </span>
+                              <Button 
+                                size="sm" 
+                                className="h-7 w-7 rounded-full p-0" 
+                                disabled={!replyText[m.id]?.trim() || (sendingId === m.id && !!m.respondido)}
+                                onClick={async () => {
+                                  const text = replyText[m.id];
+                                  setSendingId(m.id);
+                                  const tid = toast.loading('Enviando respuesta...');
+                                  try {
+                                    await mlActions.responderPregunta(m.id, text);
+                                    toast.success('Respuesta enviada ✓', { id: tid });
+                                    setReplyText({ ...replyText, [m.id]: '' });
+                                    setMensajes(prev => prev.map(msg => 
+                                      msg.id === m.id ? { ...msg, respondido: true, respuesta: text, fecha_respuesta: new Date().toISOString() } : msg
+                                    ));
+                                  } catch (error) {
+                                    toast.error('Error al enviar respuesta', { id: tid });
+                                  } finally {
+                                    setSendingId(null);
+                                  }
+                                }}
+                              >
+                                {sendingId === m.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>

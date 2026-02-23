@@ -9,8 +9,16 @@ import {
   PauseCircle,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Pause,
+  Play,
+  Pencil,
+  Check,
+  X,
+  Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { mlActions } from '@/lib/ml-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -46,21 +54,40 @@ export default function ProductosPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingPrice, setEditingPrice] = useState<{ id: string, value: string } | null>(null);
+  const [editingStock, setEditingStock] = useState<{ id: string, value: string } | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const data = await getProductos();
+      setProductos(data);
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al cargar productos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const data = await getProductos();
-        setProductos(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, [lastRefresh]);
+
+  const handleAction = async (itemId: string, actionName: string, fn: () => Promise<any>) => {
+    setUpdatingId(itemId);
+    const toastId = toast.loading(`${actionName}...`);
+    try {
+      await fn();
+      toast.success('Acción completada ✓', { id: toastId });
+      setTimeout(loadData, 3000);
+    } catch (error: any) {
+      toast.error(error.message || 'Error al ejecutar acción', { id: toastId });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const filteredProductos = useMemo(() => {
     const result = productos.filter(p => {
@@ -265,32 +292,174 @@ export default function ProductosPage() {
                   <TableCell className="font-medium max-w-[280px] truncate">
                     {producto.titulo}
                   </TableCell>
-                  <TableCell>
-                    ${producto.precio.toLocaleString('es-AR')}
+                  <TableCell className="relative">
+                    {editingPrice?.id === producto.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          className="h-8 w-24"
+                          value={editingPrice.value}
+                          onChange={(e) => setEditingPrice({ ...editingPrice, value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const nuevo = parseFloat(editingPrice.value);
+                              if (isNaN(nuevo) || nuevo <= 0) {
+                                toast.error('Precio inválido');
+                                return;
+                              }
+                              handleAction(producto.id, 'Actualizando precio', () => mlActions.editarPrecio(producto.id, nuevo));
+                              setEditingPrice(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingPrice(null);
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7 text-emerald-600"
+                          onClick={() => {
+                            const nuevo = parseFloat(editingPrice.value);
+                            if (isNaN(nuevo) || nuevo <= 0) {
+                              toast.error('Precio inválido');
+                              return;
+                            }
+                            handleAction(producto.id, 'Actualizando precio', () => mlActions.editarPrecio(producto.id, nuevo));
+                            setEditingPrice(null);
+                          }}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7 text-rose-600"
+                          onClick={() => setEditingPrice(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="flex items-center gap-1 group cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setEditingPrice({ id: producto.id, value: producto.precio.toString() })}
+                      >
+                        ${producto.precio.toLocaleString('es-AR')}
+                        <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={producto.stock > 0 ? "secondary" : "destructive"}>
-                      {producto.stock}
-                    </Badge>
+                    {editingStock?.id === producto.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          className="h-8 w-20"
+                          value={editingStock.value}
+                          onChange={(e) => setEditingStock({ ...editingStock, value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const nuevo = parseInt(editingStock.value);
+                              if (isNaN(nuevo) || nuevo < 0) {
+                                toast.error('Stock inválido');
+                                return;
+                              }
+                              handleAction(producto.id, 'Actualizando stock', () => mlActions.editarStock(producto.id, nuevo));
+                              setEditingStock(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingStock(null);
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7 text-emerald-600"
+                          onClick={() => {
+                            const nuevo = parseInt(editingStock.value);
+                            if (isNaN(nuevo) || nuevo < 0) {
+                              toast.error('Stock inválido');
+                              return;
+                            }
+                            handleAction(producto.id, 'Actualizando stock', () => mlActions.editarStock(producto.id, nuevo));
+                            setEditingStock(null);
+                          }}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7 text-rose-600"
+                          onClick={() => setEditingStock(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Badge 
+                        variant={producto.stock > 0 ? "secondary" : "destructive"}
+                        className="cursor-pointer hover:ring-1 ring-primary transition-all group"
+                        onClick={() => setEditingStock({ id: producto.id, value: producto.stock.toString() })}
+                      >
+                        {producto.stock}
+                        <Pencil className="h-2 w-2 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn(
-                      producto.estado === 'active' ? "bg-emerald-500 hover:bg-emerald-600 text-white" : 
-                      producto.estado === 'paused' ? "bg-amber-500 hover:bg-amber-600 text-white" : 
-                      producto.estado === 'closed' ? "bg-rose-500 hover:bg-rose-600 text-white" :
-                      producto.estado === 'under_review' ? "bg-blue-500 hover:bg-blue-600 text-white" :
-                      "bg-slate-500 hover:bg-slate-600 text-white"
-                    )}>
-                      {(producto.estado || 'paused').toUpperCase()}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn(
+                        producto.estado === 'active' ? "bg-emerald-500 hover:bg-emerald-600 text-white" : 
+                        producto.estado === 'paused' ? "bg-amber-500 hover:bg-amber-600 text-white" : 
+                        producto.estado === 'closed' ? "bg-rose-500 hover:bg-rose-600 text-white" :
+                        producto.estado === 'under_review' ? "bg-blue-500 hover:bg-blue-600 text-white" :
+                        "bg-slate-500 hover:bg-slate-600 text-white"
+                      )}>
+                        {(producto.estado || 'paused').toUpperCase()}
+                      </Badge>
+                      
+                      {updatingId === producto.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          {producto.estado === 'active' && (
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              title="Pausar publicación"
+                              onClick={() => handleAction(producto.id, 'Pausando publicación', () => mlActions.pausarProducto(producto.id))}
+                            >
+                              <Pause className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {producto.estado === 'paused' && (
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              title="Activar publicación"
+                              onClick={() => handleAction(producto.id, 'Activando publicación', () => mlActions.activarProducto(producto.id))}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{producto.categoria}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" asChild>
-                      <a href={producto.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
+                    <div className={cn("flex justify-end gap-1", updatingId === producto.id && "opacity-50 pointer-events-none")}>
+                      <Button variant="ghost" size="icon" asChild>
+                        <a href={producto.url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

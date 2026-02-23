@@ -11,8 +11,27 @@ import {
   TrendingDown,
   ChevronLeft,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Package,
+  Truck,
+  PackageCheck,
+  PackageX,
+  X,
+  ExternalLink,
+  Printer,
+  History,
+  Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { mlActions } from '@/lib/ml-actions';
+import { TrackingInfo } from '@/lib/types';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -62,6 +81,10 @@ export default function OrdenesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<Orden | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingData, setTrackingData] = useState<TrackingInfo | null>(null);
+  const [etiquetaLoading, setEtiquetaLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -315,7 +338,14 @@ export default function OrdenesPage() {
               </TableRow>
             ) : (
               paginatedOrdenes.map((orden) => (
-                <TableRow key={orden.id}>
+                <TableRow 
+                  key={orden.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    setSelectedOrder(orden);
+                    setTrackingData(null);
+                  }}
+                >
                   <TableCell className="text-xs whitespace-nowrap">
                     {(() => {
                       try {
@@ -381,6 +411,146 @@ export default function OrdenesPage() {
           </div>
         )}
       </Card>
+
+      {/* Drawer Detalle */}
+      <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          {selectedOrder && (
+            <>
+              <SheetHeader>
+                <SheetTitle>Detalle de Orden</SheetTitle>
+                <SheetDescription>
+                  ID: {selectedOrder.id} • {format(parseISO(selectedOrder.fecha), 'PPP')}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-6">
+                {/* Comprador */}
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold text-muted-foreground">Comprador</h4>
+                  <p className="font-medium">{selectedOrder.comprador}</p>
+                  <p className="text-xs text-muted-foreground">{selectedOrder.email}</p>
+                </div>
+
+                {/* Producto */}
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold text-muted-foreground">Producto</h4>
+                  <p className="text-sm">{selectedOrder.producto}</p>
+                  <div className="flex gap-4 mt-1">
+                    <p className="text-xs font-mono">SKU: {selectedOrder.sku || 'N/A'}</p>
+                    <p className="text-xs">Cant: {selectedOrder.cantidad}</p>
+                  </div>
+                </div>
+
+                {/* Pago */}
+                <div className="grid grid-cols-2 gap-4 border-y py-4">
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase">Estado Pago</h4>
+                    <Badge className={cn("mt-1 text-[10px]", statusColors[selectedOrder.estado])}>
+                      {statusLabel[selectedOrder.estado]}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase">Total</h4>
+                    <p className="text-lg font-bold">${selectedOrder.total.toLocaleString('es-AR')}</p>
+                  </div>
+                </div>
+
+                {/* Envío */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-muted-foreground">Información de Envío</h4>
+                    <Badge variant="outline">{selectedOrder.envio}</Badge>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {selectedOrder.shipping_id && (
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        className="gap-2"
+                        disabled={trackingLoading}
+                        onClick={async () => {
+                          setTrackingLoading(true);
+                          try {
+                            const info = await mlActions.obtenerTracking(selectedOrder.shipping_id!);
+                            setTrackingData(info);
+                          } catch (error) {
+                            toast.error('No se pudo obtener el tracking');
+                          } finally {
+                            setTrackingLoading(false);
+                          }
+                        }}
+                      >
+                        {trackingLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                        Ver tracking
+                      </Button>
+                    )}
+
+                    {(selectedOrder.estado === 'shipped' || selectedOrder.estado === 'paid') && selectedOrder.shipping_id && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="gap-2"
+                        disabled={etiquetaLoading}
+                        onClick={async () => {
+                          setEtiquetaLoading(true);
+                          try {
+                            const res = await mlActions.obtenerEtiqueta(selectedOrder.shipping_id!);
+                            if (res.url) window.open(res.url, '_blank');
+                            else toast.error('No se encontró URL de etiqueta');
+                          } catch (error) {
+                            toast.error('Error al generar etiqueta');
+                          } finally {
+                            setEtiquetaLoading(false);
+                          }
+                        }}
+                      >
+                        {etiquetaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                        Imprimir etiqueta
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Resultados Tracking */}
+                  {trackingData && (
+                    <div className="bg-muted/30 rounded-lg p-4 space-y-4 border">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-2 rounded-full",
+                          trackingData.estado_actual === 'delivered' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                        )}>
+                          <Truck className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold uppercase">
+                            {(trackingData.estado_actual || 'Estado desconocido').replace('_', ' ')}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Llega apróx: {trackingData.fecha_estimada || 'Pendiente'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted-foreground/20">
+                        {trackingData.historial.map((step, idx) => (
+                          <div key={idx} className="flex gap-3 pl-4 relative">
+                            <div className="absolute left-[-4px] top-1.5 h-3 w-3 rounded-full bg-background border-2 border-primary" />
+                            <div className="flex-1">
+                              <p className="text-xs font-medium">{step.descripcion}</p>
+                              <p className="text-[10px] text-muted-foreground">{step.fecha}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

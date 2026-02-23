@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { Log, Mensaje, Orden, Producto, ShopifyOrder } from './types';
+import { Log, Mensaje, Orden, Producto, ShopifyOrder, Reputacion } from './types';
 
 const SHEET_ID = process.env.NEXT_PUBLIC_SHEET_ID;
 const GID_PRODUCTOS = process.env.NEXT_PUBLIC_GID_PRODUCTOS;
@@ -10,6 +10,9 @@ const GID_LOGS = process.env.NEXT_PUBLIC_GID_LOGS;
 // Shopify
 const SHOPIFY_SHEET_ID = process.env.NEXT_PUBLIC_SHOPIFY_SHEET_ID;
 const GID_SHOPIFY = process.env.NEXT_PUBLIC_GID_SHOPIFY;
+
+// Reputacion
+const GID_REPUTACION = process.env.NEXT_PUBLIC_GID_REPUTACION;
 
 const getUrl = (gid: string, customSheetId?: string) => 
   `https://docs.google.com/spreadsheets/d/${customSheetId || SHEET_ID}/export?format=csv&gid=${gid}`;
@@ -64,6 +67,7 @@ export async function getOrdenes(): Promise<Orden[]> {
       estado: String(item.estado || '').toLowerCase() || 'pending',
       envio: String(item.envio || ''),
       sku: String(item.sku || '').trim() || undefined,
+      shipping_id: String(item.shipping_id || item.envio || '').trim(),
     };
   }) as Orden[];
 }
@@ -130,4 +134,17 @@ export async function getShopifyOrders(): Promise<ShopifyOrder[]> {
       rowIndex: index + 2
     };
   }) as ShopifyOrder[];
+}
+
+export async function getReputacion(): Promise<Reputacion[]> {
+  const data = await fetchCSV<any>(GID_REPUTACION!);
+  return data.map((item: any) => ({
+    ...item,
+    ventas_completadas: Number(item.ventas_completadas) || 0,
+    cancelaciones: Number(item.cancelaciones) || 0,
+    reclamos: Number(item.reclamos) || 0,
+    calificacion_positiva: parseFloat(item.calificacion_positiva) || 0,
+    calificacion_negativa: parseFloat(item.calificacion_negativa) || 0,
+    calificacion_neutra: parseFloat(item.calificacion_neutra) || 0,
+  })) as Reputacion[];
 }

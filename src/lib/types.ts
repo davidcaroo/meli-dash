@@ -22,6 +22,7 @@ export interface Orden {
   estado: 'paid' | 'pending' | 'cancelled' | 'in_process' | 'shipped' | 'delivered';
   envio: string;
   sku?: string;
+  shipping_id?: string;
 }
 
 export interface Mensaje {
@@ -90,3 +91,28 @@ export interface DashboardStats {
     nuevosTotal: number;
   };
 }
+
+export interface TrackingEvent {
+  fecha: string;
+  descripcion: string;
+  estado: 'handling' | 'ready_to_ship' | 'shipped' | 'delivered' | 'not_delivered' | 'cancelled';
+}
+
+export interface TrackingInfo {
+  estado_actual: string;
+  fecha_estimada: string;
+  historial: TrackingEvent[];
+}
+
+export interface Reputacion {
+  fecha: string;
+  nivel: 'green' | 'light_green' | 'yellow' | 'orange' | 'red';
+  ventas_completadas: number;
+  cancelaciones: number;
+  reclamos: number;
+  calificacion_positiva: number;
+  calificacion_negativa: number;
+  calificacion_neutra: number;
+  potencia: 'Normal' | 'Silver' | 'Gold' | 'Platinum';
+}
+

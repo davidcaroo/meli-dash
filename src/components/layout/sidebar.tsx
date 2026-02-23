@@ -10,7 +10,8 @@ import {
   History,
   Menu,
   X,
-  ShoppingBag
+  ShoppingBag,
+  Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,12 @@ const routes = [
     icon: ShoppingBag,
     href: '/shopify',
     color: 'text-blue-600',
+  },
+  {
+    label: 'Reputación',
+    icon: Star,
+    href: '/reputacion',
+    color: 'text-yellow-500',
   },
   {
     label: 'Logs',
