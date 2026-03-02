@@ -10,6 +10,20 @@ export interface Producto {
   imagen?: string;
 }
 
+export interface ProductoVariante {
+  variation_id: number;
+  talla: string;
+  stock: number;
+  precio: number;
+}
+
+export interface VariantesResponse {
+  success: boolean;
+  item_id: string;
+  titulo: string;
+  variantes: ProductoVariante[];
+}
+
 export interface Orden {
   id: string;
   fecha: string;

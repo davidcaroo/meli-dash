@@ -1,4 +1,4 @@
-import { TrackingInfo } from './types';
+import { TrackingInfo, VariantesResponse } from './types';
 
 const N8N_PRODUCTOS = process.env.NEXT_PUBLIC_N8N_PRODUCTOS_URL!;
 const N8N_RESPONDER = process.env.NEXT_PUBLIC_N8N_RESPONDER_URL!;
@@ -39,8 +39,13 @@ export const mlActions = {
   editarPrecio: (item_id: string, precio: number) =>
     callWebhook(N8N_PRODUCTOS, { accion: 'editar_precio', item_id, valor: precio }),
 
-  editarStock: (item_id: string, stock: number) =>
-    callWebhook(N8N_PRODUCTOS, { accion: 'editar_stock', item_id, valor: stock }),
+  editarStock: (item_id: string, stock: number, variation_id?: number) =>
+    callWebhook(N8N_PRODUCTOS, { 
+      accion: 'editar_stock', 
+      item_id, 
+      valor: stock,
+      variation_id: variation_id || 0 
+    }),
 
   responderPregunta: (question_id: string, respuesta: string) =>
     callWebhook(N8N_RESPONDER, { question_id, respuesta }),
@@ -54,6 +59,39 @@ export const mlActions = {
     };
   },
 
-  obtenerEtiqueta: (shipping_id: string) =>
-    callWebhook(N8N_ETIQUETA, { shipping_id }),
+  obtenerEtiqueta: async (shipping_id: string): Promise<Blob> => {
+    const res = await fetch(N8N_ETIQUETA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shipping_id }),
+    });
+
+    const contentType = res.headers.get('content-type');
+
+    if (!res.ok || (contentType && contentType.includes('application/json'))) {
+      let mensajeError = 'No se pudo generar el PDF';
+      try {
+        const errorData = await res.json();
+        mensajeError = errorData.mensaje || errorData.error || mensajeError;
+      } catch (e) {
+        // Si no es JSON, intentamos leer como texto
+        const textError = await res.text().catch(() => '');
+        if (textError) mensajeError = textError.substring(0, 100);
+      }
+      throw new Error(mensajeError);
+    }
+
+    return await res.blob();
+  },
+
+  getVariantes: (item_id: string): Promise<VariantesResponse> => 
+    callWebhook(N8N_PRODUCTOS, { accion: 'get_variantes', item_id }),
+
+  editarStockVariante: (item_id: string, variation_id: number, nuevoStock: number): Promise<{ success: boolean; mensaje: string }> =>
+    callWebhook(N8N_PRODUCTOS, {
+      accion: 'editar_stock',
+      item_id,
+      variation_id,
+      valor: nuevoStock
+    }),
 };

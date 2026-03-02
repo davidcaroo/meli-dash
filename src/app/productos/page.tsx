@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { mlActions } from '@/lib/ml-actions';
+import { Producto, ProductoVariante } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,10 +31,16 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getProductos } from '@/lib/sheets';
-import { Producto } from '@/lib/types';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { cn } from '@/lib/utils';
 
@@ -56,7 +63,17 @@ export default function ProductosPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<{ id: string, value: string } | null>(null);
-  const [editingStock, setEditingStock] = useState<{ id: string, value: string } | null>(null);
+  
+  // Stock Variants Modal State
+  const [stockModal, setStockModal] = useState<{ open: boolean, productId: string | null, productTitle: string }>({
+    open: false,
+    productId: null,
+    productTitle: ''
+  });
+  const [loadingVariantes, setLoadingVariantes] = useState(false);
+  const [variantes, setVariantes] = useState<ProductoVariante[]>([]);
+  const [variantesEdited, setVariantesEdited] = useState<Record<number, number>>({});
+  const [savingStock, setSavingStock] = useState(false);
 
   const loadData = async () => {
     try {
@@ -86,6 +103,80 @@ export default function ProductosPage() {
       toast.error(error.message || 'Error al ejecutar acción', { id: toastId });
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleOpenStockModal = async (product: Producto) => {
+    setStockModal({ open: true, productId: product.id, productTitle: product.titulo });
+    setLoadingVariantes(true);
+    setVariantes([]);
+    setVariantesEdited({});
+    
+    try {
+      const res = await mlActions.getVariantes(product.id);
+      if (res.success && res.variantes) {
+        setVariantes(res.variantes);
+      }
+    } catch (error) {
+      toast.error('No se pudieron cargar las tallas');
+      setStockModal(prev => ({ ...prev, open: false }));
+    } finally {
+      setLoadingVariantes(false);
+    }
+  };
+
+  const handleSaveStock = async () => {
+    if (!stockModal.productId) return;
+    
+    const edits = Object.entries(variantesEdited);
+    if (edits.length === 0) {
+      toast.error('Realiza al menos un cambio para guardar');
+      return;
+    }
+
+    // Validación estricta: variation_id debe ser un número válido > 0
+    // Si no hay variantes, usamos un placeholder que pase la validación n8n
+    const hasInvalidIds = edits.some(([vidStr]) => {
+      const vid = parseInt(vidStr);
+      return isNaN(vid) || vid < 0; // Permitimos 0 si es simple, pero n8n falla con 0.
+    });
+
+    if (hasInvalidIds) {
+      toast.error("Selecciona una talla válida antes de guardar");
+      return;
+    }
+
+    setSavingStock(true);
+    const tid = toast.loading('Actualizando stock...');
+    
+    try {
+      const promises = edits.map(([vidStr, stock]) => {
+        const vid = parseInt(vidStr);
+        
+        if (variantes.length > 0) {
+          // Si hay variantes, el ID debe ser mayor a 0 para n8n
+          if (vid <= 0) throw new Error("ID de variante no válido seleccionada");
+          
+          return mlActions.editarStockVariante(stockModal.productId!, vid, stock)
+            .catch(err => {
+              const variant = variantes.find(v => v.variation_id === vid);
+              throw new Error(`Falla en talla ${variant?.talla || vid}: ${err.message}`);
+            });
+        } else {
+          // Flujo para productos sin variantes: enviamos 1 como placeholder 
+          // para pasar la validación (!body.variation_id) de n8n
+          return mlActions.editarStock(stockModal.productId!, stock, 1);
+        }
+      });
+
+      await Promise.all(promises);
+      toast.success('Stock actualizado ✓', { id: tid });
+      setStockModal({ open: false, productId: null, productTitle: '' });
+      setTimeout(loadData, 3000);
+    } catch (error: any) {
+      toast.error(error.message || 'Error al actualizar stock', { id: tid });
+    } finally {
+      setSavingStock(false);
     }
   };
 
@@ -351,63 +442,14 @@ export default function ProductosPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {editingStock?.id === producto.id ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          className="h-8 w-20"
-                          value={editingStock.value}
-                          onChange={(e) => setEditingStock({ ...editingStock, value: e.target.value })}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const nuevo = parseInt(editingStock.value);
-                              if (isNaN(nuevo) || nuevo < 0) {
-                                toast.error('Stock inválido');
-                                return;
-                              }
-                              handleAction(producto.id, 'Actualizando stock', () => mlActions.editarStock(producto.id, nuevo));
-                              setEditingStock(null);
-                            } else if (e.key === 'Escape') {
-                              setEditingStock(null);
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-7 w-7 text-emerald-600"
-                          onClick={() => {
-                            const nuevo = parseInt(editingStock.value);
-                            if (isNaN(nuevo) || nuevo < 0) {
-                              toast.error('Stock inválido');
-                              return;
-                            }
-                            handleAction(producto.id, 'Actualizando stock', () => mlActions.editarStock(producto.id, nuevo));
-                            setEditingStock(null);
-                          }}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-7 w-7 text-rose-600"
-                          onClick={() => setEditingStock(null)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Badge 
-                        variant={producto.stock > 0 ? "secondary" : "destructive"}
-                        className="cursor-pointer hover:ring-1 ring-primary transition-all group"
-                        onClick={() => setEditingStock({ id: producto.id, value: producto.stock.toString() })}
-                      >
-                        {producto.stock}
-                        <Pencil className="h-2 w-2 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </Badge>
-                    )}
+                    <Badge 
+                      variant={producto.stock > 0 ? "secondary" : "destructive"}
+                      className="cursor-pointer hover:ring-1 ring-primary transition-all group"
+                      onClick={() => handleOpenStockModal(producto)}
+                    >
+                      {producto.stock}
+                      <Pencil className="h-2 w-2 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -529,6 +571,98 @@ export default function ProductosPage() {
           )}
         </div>
       </Card>
+
+      {/* Modal Edición de Stock (Variantes) */}
+      <Dialog open={stockModal.open} onOpenChange={(open) => setStockModal(prev => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Editar Stock - {stockModal.productTitle}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            {loadingVariantes ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground font-medium">Cargando tallas disponibles...</p>
+              </div>
+            ) : variantes.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Talla</TableHead>
+                    <TableHead className="text-right">Stock Actual</TableHead>
+                    <TableHead className="text-right w-32">Nuevo Stock</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {variantes.map((v) => (
+                    <TableRow key={v.variation_id}>
+                      <TableCell className="font-medium">{v.talla}</TableCell>
+                      <TableCell className="text-right">{v.stock}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          className="h-8 text-right"
+                          defaultValue={v.stock}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val) && val >= 0) {
+                              if (val === v.stock) {
+                                setVariantesEdited(prev => {
+                                  const next = { ...prev };
+                                  delete next[v.variation_id];
+                                  return next;
+                                });
+                              } else {
+                                setVariantesEdited(prev => ({ ...prev, [v.variation_id]: val }));
+                              }
+                            }
+                          }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Este producto no tiene variantes detectadas. Ingresa el stock directo:</p>
+                <Input
+                  type="number"
+                  placeholder="Stock total"
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    const currentProduct = productos.find(p => p.id === stockModal.productId);
+                    if (!isNaN(val) && val >= 0) {
+                      if (currentProduct && val === currentProduct.stock) {
+                        setVariantesEdited({}); // No changes
+                      } else {
+                        setVariantesEdited({ [1]: val }); // Use 1 as truthy placeholder for simple products
+                      }
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStockModal(prev => ({ ...prev, open: false }))}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSaveStock} 
+              disabled={savingStock || Object.keys(variantesEdited).length === 0}
+            >
+              {savingStock ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

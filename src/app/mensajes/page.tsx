@@ -13,7 +13,8 @@ import {
   Plus,
   Star,
   Trash2,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { mlActions } from '@/lib/ml-actions';
@@ -56,6 +57,7 @@ export default function MensajesPage() {
   const [customTemplates, setCustomTemplates] = useState<string[]>([]);
   const [newTemplate, setNewTemplate] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewingMessage, setViewingMessage] = useState<Mensaje | null>(null);
 
   const defaultTemplates = [
     "Hola, sí tenemos disponibilidad del producto 😊",
@@ -248,9 +250,19 @@ export default function MensajesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[300px]">
-                      <p className="text-sm italic text-muted-foreground line-clamp-2">
-                        "{m.mensaje}"
-                      </p>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-sm italic text-muted-foreground line-clamp-2">
+                          "{m.mensaje}"
+                        </p>
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="h-auto p-0 w-fit text-[10px] text-primary gap-1"
+                          onClick={() => setViewingMessage(m)}
+                        >
+                          <Eye className="h-3 w-3" /> Ver completo
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[400px]">
                       {m.respondido ? (
@@ -357,6 +369,57 @@ export default function MensajesPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Modal para ver mensaje completo */}
+      <Dialog open={!!viewingMessage} onOpenChange={(open) => !open && setViewingMessage(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              Detalle de la Pregunta
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewingMessage && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground block">Comprador</span>
+                  <span className="font-medium">{viewingMessage.comprador}</span>
+                </div>
+                <div className="space-y-1 text-right">
+                  <span className="text-muted-foreground block">Fecha</span>
+                  <span className="font-medium">{format(new Date(viewingMessage.fecha), 'dd/MM/yyyy HH:mm')}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground block">Producto</span>
+                <span className="text-sm font-medium">{viewingMessage.producto}</span>
+              </div>
+
+              <div className="bg-muted/50 p-4 rounded-lg border italic text-sm text-foreground">
+                "{viewingMessage.mensaje}"
+              </div>
+
+              {viewingMessage.respondido && (
+                <div className="space-y-2 pt-2">
+                  <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Respuesta Enviada:
+                  </span>
+                  <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/20 text-sm">
+                    {viewingMessage.respuesta}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button onClick={() => setViewingMessage(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
